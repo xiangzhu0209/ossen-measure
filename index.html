@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>客戶丈量追蹤管理系統 </title>
+  <title>客戶丈量追蹤管理系統 (Firebase 版)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 全域引入 -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -29,6 +29,20 @@
     .font-semibold {
       font-weight: 400 !important;
     }
+    
+    /* 保護 FontAwesome 圖標不被 !important 覆蓋 */
+    .fa-solid, .fas {
+      font-weight: 900 !important;
+      font-family: "Font Awesome 6 Free" !important;
+    }
+    .fa-regular, .far {
+      font-weight: 400 !important;
+      font-family: "Font Awesome 6 Free" !important;
+    }
+    .fa-brands, .fab {
+      font-weight: 400 !important;
+      font-family: "Font Awesome 6 Brands" !important;
+    }
   </style>
 </head>
 <body class="bg-[#F0F4F8] text-slate-700 min-h-screen">
@@ -44,7 +58,7 @@
         <h1 class="text-xl sm:text-2xl font-bold text-blue-950 tracking-tight flex items-center gap-2">
           客戶丈量與追蹤管理 <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">雲端同步中</span>
         </h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1">Firebase 即時資料庫・</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Firebase 即時資料庫</p>
       </div>
     </div>
     
@@ -63,7 +77,7 @@
         <i class="fa-solid fa-plus"></i> 新增丈量
       </button>
 
-      <!-- 匯入 Excel 按鈕 -->
+      <!-- 匯入 Excel 按鈕 (隱藏式檔案上傳) -->
       <label class="cursor-pointer inline-flex items-center gap-1 px-3 py-2 bg-emerald-800 hover:bg-emerald-700 text-white text-xs sm:text-sm rounded-lg shadow-sm transition">
         <i class="fa-solid fa-file-excel"></i> 匯入 Excel 舊資料
         <input type="file" accept=".xlsx, .xls" @change="importExcelFile" class="hidden">
@@ -318,7 +332,7 @@
     </main>
   </div>
 
-  <!-- ==================== 智慧追蹤待辦提醒 彈窗 ==================== -->
+  <!-- ==================== 追蹤待辦提醒 彈窗 ==================== -->
   <div v-if="showReminderModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-blue-950/40 backdrop-blur-sm">
     <div class="bg-white rounded-2xl shadow-2xl border border-blue-100 max-w-lg w-full p-5 max-h-[85vh] flex flex-col">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -411,11 +425,11 @@
         </div>
         <div v-if="form.status === 'won'">
           <label class="block font-medium text-emerald-700 mb-1">成交金額 (元)</label>
-          <input v-model="form.amount" type="text" placeholder= class="w-full border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition">
+          <input v-model="form.amount" type="text" placeholder="例: 10500" class="w-full border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:outline-none transition">
         </div>
         <div v-else-if="form.status === 'lost'">
           <label class="block font-medium text-rose-700 mb-1">未成交原因</label>
-          <input v-model="form.lostReason" type="text" placeholder="例: 預算問題" class="w-full border border-rose-300 rounded-lg p-2 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 focus:outline-none transition">
+          <input v-model="form.lostReason" type="text" placeholder="例: 預算不夠" class="w-full border border-rose-300 rounded-lg p-2 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 focus:outline-none transition">
         </div>
         <div class="space-y-2 pt-2 border-t border-slate-100">
           <div>
@@ -471,7 +485,7 @@
       const isModalOpen = ref(false);
       const showReminderModal = ref(false);
       const importingStatus = ref("");
-      const ownerOptions = ["詠舜", "橙家", "柏村", "鼎均", "琮芢"];
+      const ownerOptions = ["詠舜", "橙家", "柏村", "鼎均"];
 
       const form = ref({
         id: null, date: "", caseName: "", customerName: "", owner: "", status: "pending", followUpDate: "", amount: "", lostReason: "", report1: "", report2: "", report3: ""
@@ -505,10 +519,8 @@
         return records.value.filter(r => r.status === "pending" && isNearFollowUp(r.followUpDate));
       });
 
-      // 【已優化】全域搜尋過濾邏輯
       const filteredList = computed(() => {
         return records.value.filter(item => {
-          // 如果有輸入關鍵字，進行全域搜尋（忽略月份限制）
           if (filterKeyword.value) {
             const kw = filterKeyword.value.toLowerCase();
             const matchCase = (item.caseName || "").toLowerCase().includes(kw);
@@ -518,11 +530,8 @@
             const matchR3 = (item.report3 || "").toLowerCase().includes(kw);
             if (!matchCase && !matchCustomer && !matchR1 && !matchR2 && !matchR3) return false;
           } else {
-            // 沒有輸入關鍵字時，才套用左側的月份篩選
             if (selectedMonth.value !== "ALL" && getMonthStr(item.date) !== selectedMonth.value) return false;
           }
-
-          // 負責人與狀態過濾條件
           if (filterOwner.value && item.owner !== filterOwner.value) return false;
           if (filterStatus.value && item.status !== filterStatus.value) return false;
           return true;
